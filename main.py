@@ -13,6 +13,11 @@ from urllib.parse import urlparse
 load_dotenv()
 
 app = FastAPI()
+@app.get("/")
+def home():
+    return {"message": "TruthTrace API is running"}
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
