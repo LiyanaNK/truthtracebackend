@@ -126,4 +126,4 @@ def analyze_url(request: URLRequest):
 
     except Exception as e:
         return {"error": str(e)}
->>>>>>> bf2acfbacdfde0187325b2a4e0ae29971ed83861
+
