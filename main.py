@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import os
 import json
 import requests
+from datetime import datetime
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 
@@ -70,13 +71,18 @@ def extract_text_from_url(url):
 # -------- AI Fact Check Function --------
 
 def fact_check(content):
+    # Get current date
+    current_date = datetime.now().strftime("%Y-%m-%d")
+
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=[
             {
                 "role": "system",
                 "content": (
+                    f"Current date: {current_date}. "
                     "You are a strict fact-checking AI. "
+                    "Use the current date above as today's date. "
                     "Respond ONLY in valid JSON format like this:\n"
                     "{\n"
                     '  "verdict": "Real or Fake",\n'
@@ -102,8 +108,6 @@ def fact_check(content):
             "reason": output,
             "confidence_percent": 0,
         }
-
-
 # -------- Text Endpoint --------
 
 @app.post("/analyze-text")
