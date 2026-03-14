@@ -67,12 +67,39 @@ def extract_text_from_url(url):
     except Exception:
         return None, None
 
+# -------- Search Related News --------
+def search_related_news(query):
+    try:
+        url = "https://newsapi.org/v2/everything"
+        params = {
+            "q": query[:100],
+            "language": "en",
+            "sortBy": "relevancy",
+            "pageSize": 5,
+            "apiKey": os.getenv("NEWS_API_KEY")
+        }
 
+        response = requests.get(url, params=params)
+        data = response.json()
+
+        headlines = []
+        for article in data.get("articles", []):
+            headlines.append(article["title"])
+
+        return headlines
+
+    except:
+        return []
 # -------- AI Fact Check Function --------
 
 def fact_check(content):
-    # Get current date
+    from datetime import datetime
     current_date = datetime.now().strftime("%Y-%m-%d")
+
+    # Get related news headlines
+    related_news = search_related_news(content)
+
+    context = "\n".join(related_news)
 
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
@@ -81,13 +108,14 @@ def fact_check(content):
                 "role": "system",
                 "content": (
                     f"Current date: {current_date}. "
-                    "You are a strict fact-checking AI. "
-                    "Use the current date above as today's date. "
-                    "Respond ONLY in valid JSON format like this:\n"
+                    "You are a strict fact-checking AI.\n"
+                    "Use the related news headlines as evidence when judging the claim.\n\n"
+                    f"Related news:\n{context}\n\n"
+                    "Respond ONLY in valid JSON format:\n"
                     "{\n"
-                    '  "verdict": "Real or Fake",\n'
-                    '  "reason": "Clear explanation",\n'
-                    '  "confidence_percent": number (0-100)\n'
+                    ' "verdict": "Real, Fake, or Unverified",\n'
+                    ' "reason": "Explanation",\n'
+                    ' "confidence_percent": number (0-100)\n'
                     "}"
                 ),
             },
@@ -107,8 +135,7 @@ def fact_check(content):
             "verdict": "Unclear",
             "reason": output,
             "confidence_percent": 0,
-        }
-# -------- Text Endpoint --------
+        }# -------- Text Endpoint --------
 
 @app.post("/analyze-text")
 def analyze_text(request: TextRequest):
