@@ -38,7 +38,6 @@ class TextRequest(BaseModel):
 class URLRequest(BaseModel):
     url: str
 
-
 # -------- Extract Article Text + Source Name --------
 
 def extract_text_from_url(url):
@@ -68,6 +67,7 @@ def extract_text_from_url(url):
         return None, None
 
 # -------- Search Related News --------
+
 def search_related_news(query):
     try:
         url = "https://newsapi.org/v2/everything"
@@ -90,6 +90,7 @@ def search_related_news(query):
 
     except:
         return []
+
 # -------- AI Fact Check Function --------
 
 def fact_check(content):
@@ -135,7 +136,8 @@ def fact_check(content):
             "verdict": "Unclear",
             "reason": output,
             "confidence_percent": 0,
-        }# -------- Text Endpoint --------
+        }
+# -------- Text Endpoint --------
 
 @app.post("/analyze-text")
 def analyze_text(request: TextRequest):
