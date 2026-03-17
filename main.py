@@ -120,7 +120,7 @@ Format:
 """
 
         response = client.models.generate_content(
-            model="model="gemini-2.5-flash",
+            model="gemini-2.5-flash",
             contents=prompt
         )
 
