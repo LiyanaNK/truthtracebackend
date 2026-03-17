@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 import os
 import json
@@ -13,8 +13,13 @@ from urllib.parse import urlparse
 # Load environment variables
 load_dotenv()
 
+# Initialize Gemini client
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+# Create FastAPI app
 app = FastAPI()
 
+# Root endpoint
 @app.get("/")
 def home():
     return {"message": "TruthTrace API is running"}
@@ -27,10 +32,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Configure Gemini API
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-2.5-flash")
 
 # -------- Request Models --------
 class TextRequest(BaseModel):
@@ -49,6 +50,7 @@ def extract_text_from_url(url):
         paragraphs = soup.find_all("p")
         article_text = " ".join([p.get_text() for p in paragraphs])
 
+        # Get site name
         site_name = None
         meta_tag = soup.find("meta", property="og:site_name")
         if meta_tag:
@@ -58,7 +60,7 @@ def extract_text_from_url(url):
             parsed_url = urlparse(url)
             site_name = parsed_url.netloc.replace("www.", "")
 
-        return article_text[:5000], site_name
+        return article_text[:3000], site_name   # 🔥 reduced for speed
 
     except Exception:
         return None, None
@@ -67,12 +69,11 @@ def extract_text_from_url(url):
 def search_related_news(query):
     try:
         url = "https://newsapi.org/v2/everything"
-
         params = {
             "q": " ".join(query.split()[:10]),
             "language": "en",
             "sortBy": "publishedAt",
-            "pageSize": 5,
+            "pageSize": 3,   # 🔥 faster
             "apiKey": os.getenv("NEWS_API_KEY")
         }
 
@@ -90,12 +91,12 @@ def search_related_news(query):
 
 # -------- AI Fact Check --------
 def fact_check(content):
-    current_date = datetime.now().strftime("%Y-%m-%d")
+    try:
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        related_news = search_related_news(content)
+        context = "\n".join(related_news)
 
-    related_news = search_related_news(content)
-    context = "\n".join(related_news)
-
-    prompt = f"""
+        prompt = f"""
 Current date: {current_date}
 
 You are a real-time fact checking AI.
@@ -118,21 +119,26 @@ Format:
 }}
 """
 
-    response = model.generate_content(prompt)
-    output = response.text.strip()
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt
+        )
 
-    # 🔥 Remove markdown if Gemini still sends it
-    if "```" in output:
-        output = output.replace("```json", "").replace("```", "").strip()
+        output = response.text.strip()
 
-    try:
+        # 🔥 Remove markdown if Gemini adds it
+        if "```" in output:
+            output = output.replace("```json", "").replace("```", "").strip()
+
         return json.loads(output)
+
     except Exception as e:
         return {
             "verdict": "Error",
-            "reason": f"Parsing failed: {output}",
+            "reason": str(e),
             "confidence_percent": 0
         }
+
 # -------- Text Endpoint --------
 @app.post("/analyze-text")
 def analyze_text(request: TextRequest):
